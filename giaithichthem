@@ -6,7 +6,7 @@
 
 ### 1. Mô hình hóa bản đồ bằng Đồ thị (Adjacency List)
 
-Toàn bộ thế giới ảo Meadowfield được biểu diễn dưới dạng một đồ thị vô hướng (undirected graph). Dữ liệu thô ban đầu là một mảng chuỗi `roads` chứa các cạnh kết nối giữa các điểm:
+Toàn bộ thế giới ảo Meadowfield được biểu diễn dưới dạng một đồ thị vô hướng (undirected graph). Dữ liệu thô ban đầu là một mảng chuỗi `roads` chứa các cặp địa điểm được nối với nhau:
 
 ```javascript
 const roads = [
@@ -44,9 +44,9 @@ function buildGraph(edges) {
 const roadGraph = buildGraph(roads);
 ```
 
-- **`Object.create(null)`**: Tạo ra một đối tượng rỗng thuần túy không kế thừa các thuộc tính từ `Object.prototype`, tránh nguy cơ đụng độ tên thuộc tính hệ thống.
-- **Đồ thị hai chiều**: Với mỗi cặp kết nối `from - to`, hàm `addEdge` được gọi hai lần (`addEdge(from, to)` và `addEdge(to, from)`) để đảm bảo rô-bốt có thể di chuyển theo hai hướng.
-- **Tính nguyên vẹn dữ liệu**: Hàm sử dụng `.map(r => r.split("-"))` để xử lý mảng đầu vào mà không làm thay đổi (mutate) mảng `roads` ban đầu.
+- **`Object.create(null)`**: Tạo ra một đối tượng rỗng thuần túy không kế thừa từ `Object.prototype`, giúp tránh va chạm tên thuộc tính hệ thống.
+- **Đồ thị hai chiều**: Với mỗi cặp kết nối `from - to`, hàm `addEdge` được gọi hai lần (`addEdge(from, to)` và `addEdge(to, from)`) để đảm bảo rô-bốt có thể di chuyển theo cả hai hướng.
+- **Tính nguyên vẹn dữ liệu**: Hàm sử dụng `.map(r => r.split("-"))` để xử lý dữ liệu đầu vào mà không làm thay đổi mảng `roads` ban đầu.
 
 ---
 
@@ -78,10 +78,10 @@ class VillageState {
 
 **Cơ chế hoạt động của `move(destination)`:**
 
-1. **Kiểm tra hợp lệ**: Xác minh điểm đến `destination` có nằm trong danh sách kề `roadGraph[this.place]` hay không. Nếu không có đường nối, hàm trả về nguyên đối tượng hiện tại.
+1. **Kiểm tra hợp lệ**: Xác minh điểm đến `destination` có nằm trong danh sách kề `roadGraph[this.place]` hay không. Nếu không có đường nối, hàm trả về nguyên trạng thái hiện tại.
 2. **Cập nhật vị trí gói hàng**: Duyệt qua mảng `parcels`. Những gói hàng nào đang ở cùng vị trí với rô-bốt (`p.place == this.place`) sẽ được di chuyển tới `destination`.
-3. **Lọc hàng đã giao**: Phương thức `.filter(p => p.place != p.address)` loại bỏ ngay lập tức những gói hàng có vị trí hiện tại trùng với địa chỉ nhận.
-4. **Tạo trạng thái mới**: Trả về một thể hiện `new VillageState(destination, parcels)` hoàn toàn mới. Việc không sửa đổi dữ liệu trực tiếp giúp dễ dàng truy vết trạng thái lịch sử.
+3. **Lọc hàng đã giao**: Phương thức `.filter(p => p.place != p.address)` loại bỏ ngay những gói hàng đã được giao thành công.
+4. **Tạo trạng thái mới**: Trả về một thể hiện `new VillageState(destination, parcels)` hoàn toàn mới. Việc không sửa đổi dữ liệu trực tiếp giúp hệ thống dễ debug, dễ kiểm thử và dễ mở rộng.
 
 ---
 
@@ -104,7 +104,7 @@ VillageState.random = function(parcelCount = 5) {
 };
 ```
 
-Vòng lặp `do...while` đảm bảo gói hàng không bao giờ được khởi tạo tại điểm trùng với địa chỉ đích của nó (`place != address`). Rô-bốt luôn xuất phát tại "Post Office".
+Vòng lặp `do...while` đảm bảo gói hàng không bao giờ được khởi tạo tại điểm trùng với địa chỉ đích (`place != address`). Rô-bốt luôn xuất phát tại `Post Office` để chuẩn hóa điều kiện ban đầu khi đánh giá thuật toán.
 
 ---
 
@@ -132,16 +132,16 @@ function findRoute(graph, from, to) {
 
 ### Cơ chế hoạt động chi tiết của BFS
 
-1. **Hàng đợi `work`**: Lưu danh sách các nút cần khám phá. Mỗi phần tử gồm hai thông tin: `at` (điểm đang đứng) và `route` (mảng lưu chuỗi các điểm đã đi qua).
-2. **Duyệt theo chiều rộng (loang theo từng lớp)**: Thuật toán kiểm tra tất cả các nút cách `from` 1 bước, sau đó đến các nút cách 2 bước, 3 bước... Đảm bảo tìm được đường ngắn nhất.
-3. **Tránh lặp vô hạn (Cycle Prevention)**: Điều kiện `!work.some(w => w.at == place)` kiểm tra xem địa điểm `place` đã từng được thêm vào mảng `work` trước đó chưa.
-4. **Kết quả trả về**: Ngay khi `place == to`, hàm lập tức dừng và trả về mảng con đường đầy đủ `route.concat(place)`.
+1. **Hàng đợi `work`**: Lưu danh sách các nút cần khám phá. Mỗi phần tử gồm `at` (vị trí hiện tại) và `route` (chuỗi đường đi đến vị trí đó).
+2. **Duyệt theo chiều rộng**: Thuật toán đi theo từng "lớp" khoảng cách từ điểm bắt đầu `from` (1 bước, 2 bước, 3 bước...). Điều này đảm bảo tuyến tìm thấy đầu tiên luôn là ngắn nhất.
+3. **Tránh lặp vô hạn**: Điều kiện `!work.some(w => w.at == place)` ngăn việc thêm lại một nút đã được duyệt trước đó.
+4. **Trả về kết quả sớm**: Ngay khi gặp `place == to`, hàm dừng và trả về tuyến hoàn chỉnh `route.concat(place)`.
 
 ---
 
 ## III. TIẾN HÓA CÁC "BỘ NÃO" RÔ-BỐT
 
-Sự tiến hóa của các giải thuật điều khiển rô-bốt thể hiện việc tối ưu hóa từ di chuyển ngẫu nhiên đến các giải thuật tham ăn (Greedy) và quy hoạch lộ trình:
+Sự tiến hóa của các giải thuật điều khiển rô-bốt thể hiện quá trình tối ưu hóa từ ngẫu nhiên đến có chiến lược và tối ưu chuỗi giao hàng:
 
 ```text
                  +-------------------+
@@ -173,15 +173,15 @@ Sự tiến hóa của các giải thuật điều khiển rô-bốt thể hiệ
 
 ### 1. `randomRobot` (Di chuyển ngẫu nhiên)
 
-- **Chiến lược**: Lựa chọn ngẫu nhiên một trong các điểm kề với vị trí hiện tại thông qua `randomPick(roadGraph[state.place])`.
+- **Chiến lược**: Chọn ngẫu nhiên một điểm kề với vị trí hiện tại bằng `randomPick(roadGraph[state.place])`.
 - **Bộ nhớ (`memory`)**: Không sử dụng.
-- **Đánh giá**: Hiệu suất cực kỳ thấp (trung bình ~63 lượt đi) do bị quẩn quanh tại các vòng lặp.
+- **Đánh giá**: Hiệu suất thấp (trung bình ~63 bước), dễ bị lặp vòng.
 
 ---
 
 ### 2. `routeRobot` (Cố định tuyến đường)
 
-- **Chiến lược**: Sử dụng một lộ trình cố định `mailRoute` gồm 13 điểm đi qua toàn bộ các địa danh trong làng Meadowfield.
+- **Chiến lược**: Duyệt theo lộ trình cố định `mailRoute` đi qua các điểm chính trong làng Meadowfield.
 
 ```javascript
 const mailRoute = [
@@ -192,14 +192,14 @@ const mailRoute = [
 ];
 ```
 
-- **Bộ nhớ (`memory`)**: Lưu trữ các điểm còn lại trong lộ trình cố định chưa đi qua.
-- **Đánh giá**: Đạt trung bình ~18 lượt đi. Tuy tối ưu hơn ngẫu nhiên nhưng vẫn lãng phí bước đi vì phải chạy hết lộ trình cố định dù hàng đã được giao.
+- **Bộ nhớ (`memory`)**: Lưu danh sách các điểm còn lại trong lộ trình.
+- **Đánh giá**: Trung bình ~18 bước. Ổn định hơn random nhưng vẫn có bước thừa vì luôn bám tuyến cố định.
 
 ---
 
 ### 3. `goalOrientedRobot` (Định hướng mục tiêu đơn lẻ)
 
-- **Chiến lược**: Sử dụng BFS để tìm đường ngắn nhất đến gói hàng đầu tiên trong danh sách (`parcels[0]`).
+- **Chiến lược**: Dùng BFS để tìm đường ngắn nhất đến mục tiêu liên quan gói hàng đầu tiên (`parcels[0]`).
 
 ```javascript
 function goalOrientedRobot({place, parcels}, route) {
@@ -215,16 +215,16 @@ function goalOrientedRobot({place, parcels}, route) {
 }
 ```
 
-- **Hạn chế cố hữu**:
-  - **Thiếu tầm nhìn toàn cục**: Luôn chọn `parcels[0]` làm mục tiêu mà không kiểm tra xem có gói hàng nào khác nằm ngay cạnh mình hay không.
-  - **Hành vi ngắt quãng**: Phải di chuyển ngang qua bản đồ để xử lý `parcels[0]`, vô tình đi qua điểm chứa gói hàng `parcels[1]` nhưng bỏ qua.
+- **Hạn chế**:
+  - Thiếu tầm nhìn toàn cục: chỉ tập trung vào `parcels[0]`.
+  - Có thể bỏ lỡ cơ hội nhặt các gói tiện đường.
 - **Hiệu suất**: ~16 bước trung bình.
 
 ---
 
-### 4. `smarterRobot` (Tối ưu hóa đa mục tiêu & ưu tiên hành động)
+### 4. `smarterRobot` (Tối ưu đa mục tiêu & ưu tiên hành động)
 
-- **Giải pháp khắc phục**: Tính toán khoảng cách tới **TẤT CẢ** các gói hàng (cả việc nhặt lẫn việc giao) và chọn phương án có con đường ngắn nhất.
+- **Ý tưởng**: Tính đường đi cho **tất cả** các lựa chọn (nhặt hoặc giao), rồi chọn phương án ngắn nhất.
 
 ```javascript
 function smarterRobot({place, parcels}, route) {
@@ -254,21 +254,19 @@ function smarterRobot({place, parcels}, route) {
 }
 ```
 
-#### Phân tích hàm đánh giá trọng số `score(a, b)`
+#### Phân tích hàm `score(a, b)`
 
-1. **`a.route.length - b.route.length`**: Ưu tiên hàng đầu cho lộ trình có số bước ít nhất.
-2. **`|| (b.pickUp - a.pickUp)`**: Khi hai lộ trình có chiều dài bằng nhau, phép tính logic `||` sẽ kích hoạt tiêu chí phụ:
-   - Nếu `a` là hành động nhặt (`pickUp = true` → giá trị 1) và `b` là hành động giao (`pickUp = false` → giá trị 0): `b.pickUp - a.pickUp` trả về `-1`, xếp `a` lên trước.
-   - **Triết lý**: Khi độ dài đường đi bằng nhau, ưu tiên **NHẶT HÀNG** trước để thu gom được nhiều kiện hàng cùng lúc.
+1. **`a.route.length - b.route.length`**: Ưu tiên tuyến ngắn hơn.
+2. **`|| (b.pickUp - a.pickUp)`**: Nếu bằng số bước thì ưu tiên hành động **nhặt hàng** (`pickUp = true`) trước giao hàng.
 
 ---
 
-### 5. `bestRobot` (Tối ưu hóa chuỗi giao hàng dựa trên thuật toán TSP)
+### 5. `bestRobot` (Tối ưu chuỗi giao hàng dựa trên TSP)
 
-- **Vấn đề của `smarterRobot`**: Khi đã nhặt hết tất cả các gói hàng, `smarterRobot` chỉ chọn điểm giao gần nhất tại thời điểm tức thì (Greedy).
-- **Giải pháp**: Phân chia chiến lược thành 2 giai đoạn:
-  1. **Giai đoạn còn hàng chưa nhặt**: Áp dụng chiến lược nhặt gần nhất giống `smarterRobot`.
-  2. **Giai đoạn đã nhặt hết hàng**: Sử dụng thuật toán **Nearest Neighbor TSP** để lập kế hoạch chuỗi giao hàng liên tục.
+- **Điểm yếu của `smarterRobot`**: Khi đã nhặt hết hàng, nó vẫn tối ưu theo kiểu cục bộ (gần nhất tại thời điểm hiện tại).
+- **Giải pháp**: Chia làm 2 giai đoạn:
+  1. Còn hàng chưa nhặt → chiến lược giống `smarterRobot`.
+  2. Đã nhặt hết → lập kế hoạch thứ tự giao theo **Nearest Neighbor TSP**.
 
 ```javascript
 function bestRobot({place, parcels}, route) {
@@ -320,13 +318,13 @@ function planDeliveryOrder(currentPlace, addresses) {
 }
 ```
 
-#### Nguyên lý thuật toán Nearest Neighbor TSP trong `planDeliveryOrder`
+#### Nguyên lý Nearest Neighbor TSP trong `planDeliveryOrder`
 
-1. Từ vị trí hiện tại `pos`, tìm điểm giao gần nhất trong danh sách `remaining`.
-2. Nối lộ trình đến điểm đó vào `fullRoute`.
-3. Cập nhật vị trí hiện tại `pos` chính là điểm vừa đến.
-4. Loại bỏ điểm đó khỏi danh sách `remaining` bằng `.splice(bestIndex, 1)`.
-5. Lặp lại cho đến khi `remaining` rỗng.
+1. Từ vị trí `pos`, tìm điểm giao gần nhất trong `remaining`.
+2. Nối lộ trình đó vào `fullRoute`.
+3. Cập nhật `pos` thành điểm vừa đến.
+4. Xóa điểm đã giao khỏi `remaining` bằng `.splice(bestIndex, 1)`.
+5. Lặp cho đến khi không còn điểm giao.
 
 ---
 
@@ -334,7 +332,7 @@ function planDeliveryOrder(currentPlace, addresses) {
 
 ### 1. Exercise 1: Measuring a Robot (Đo lường & kiểm thử thống kê)
 
-Để so sánh năng lực giữa các thuật toán một cách khách quan, hệ thống cần kiểm soát biến số môi trường:
+Để so sánh khách quan các thuật toán, cần cho chúng chạy trên cùng một bộ trạng thái thử nghiệm:
 
 ```javascript
 function countSteps(state, robot, memory) {
@@ -358,14 +356,14 @@ function compareRobots(robot1, memory1, robot2, memory2) {
 }
 ```
 
-- **Phương pháp kiểm thử chuẩn xác**: Trong mỗi vòng lặp, cả hai rô-bốt chạy trên **cùng một trạng thái ngẫu nhiên duy nhất**.
-- **Ý nghĩa**: Điều này đảm bảo so sánh công bằng và khoa học.
+- **Nguyên tắc**: Trong mỗi lần lặp, cả hai robot chạy trên **cùng một trạng thái ngẫu nhiên**.
+- **Ý nghĩa**: So sánh công bằng, giảm sai lệch do may rủi dữ liệu đầu vào.
 
 ---
 
 ### 2. Exercise 3: Persistent Group (`PGroup` - Tập hợp bất biến)
 
-Bài tập yêu cầu xây dựng một cấu trúc dữ liệu kiểu Tập hợp tuân theo nguyên lý **Bất biến**:
+Bài tập yêu cầu xây dựng cấu trúc kiểu tập hợp nhưng không thay đổi trực tiếp dữ liệu gốc:
 
 ```javascript
 class PGroup {
@@ -391,11 +389,11 @@ class PGroup {
 PGroup.empty = new PGroup([]);
 ```
 
-#### Phân tích cấu trúc `PGroup`
+#### Phân tích `PGroup`
 
-- **`add(value)`**: Nếu giá trị đã có mặt, trả về nguyên đối tượng hiện tại. Nếu chưa có, dùng `.concat()` tạo mảng mới.
-- **`delete(value)`**: Dùng `.filter()` tạo mảng mới đã loại bỏ `value`, sau đó đóng gói trong instance `PGroup` mới.
-- **Mẫu thiết kế Singleton cho `PGroup.empty`**: Chỉ tạo duy nhất một đối tượng rỗng để tiết kiệm tài nguyên.
+- **`add(value)`**: Nếu đã có thì giữ nguyên; nếu chưa có thì tạo instance mới với mảng mới.
+- **`delete(value)`**: Loại giá trị bằng `.filter()` và trả về instance mới.
+- **`PGroup.empty`**: Một đối tượng rỗng dùng chung theo hướng singleton.
 
 ---
 
